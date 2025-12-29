@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Coordinates } from "@/api/types";
 
 interface GeolocationState {
@@ -11,12 +11,10 @@ export function useGeolocation() {
   const [locationData, setLocationData] = useState<GeolocationState>({
     coordinates: null,
     error: null,
-    isLoading: false,
+    isLoading: true,
   });
 
   const getLocation = () => {
-    setLocationData((prev) => ({ ...prev, isLoading: true, error: null }));
-
     if (!navigator.geolocation) {
       setLocationData({
         coordinates: null,
@@ -25,6 +23,8 @@ export function useGeolocation() {
       });
       return;
     }
+
+    setLocationData((prev) => ({ ...prev, isLoading: true, error: null }));
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -38,21 +38,15 @@ export function useGeolocation() {
         });
       },
       (error) => {
-        let errorMessage: string;
+        let errorMessage = "Unable to retrieve location.";
 
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "Location permission denied. Please enable location access.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information is unavailable.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out.";
-            break;
-          default:
-            errorMessage = "An unknown error occurred.";
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMessage =
+            "Location permission denied. Please enable location access.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = "Location information is unavailable.";
+        } else if (error.code === error.TIMEOUT) {
+          errorMessage = "Location request timed out.";
         }
 
         setLocationData({
@@ -61,21 +55,21 @@ export function useGeolocation() {
           isLoading: false,
         });
       },
-{
-  enableHighAccuracy: false, // 🔥 IMPORTANT
-  timeout: 30000,            // 🔥 MUST be high
-  maximumAge: 60000,         // reuse cached location
-}
+      {
+        enableHighAccuracy: false,
+        timeout: 30000,
+        maximumAge: 5 * 60 * 1000, // cache for 5 min
+      }
     );
   };
 
-  // Get location on component mount
-  // useEffect(() => {
-  //   getLocation();
-  // }, []);
+  // 🔥 AUTO-FETCH on page load
+  useEffect(() => {
+    getLocation();
+  }, []);
 
   return {
     ...locationData,
-    getLocation, // Expose method to manually refresh location
+    getLocation,
   };
 }
